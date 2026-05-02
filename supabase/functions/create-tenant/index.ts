@@ -34,9 +34,18 @@ Deno.serve(async (req) => {
 
   const admin = getServiceClient();
 
+  // Generate unique slug from name
+  const baseSlug = name.trim()
+    .toLowerCase()
+    .normalize("NFD").replace(/[̀-ͯ]/g, "") // remove accents
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40);
+  const slug = `${baseSlug}-${crypto.randomUUID().slice(0, 6)}`;
+
   const { data: tenant, error: tErr } = await admin
     .from("tenants")
-    .insert({ name: name.trim() })
+    .insert({ name: name.trim(), slug })
     .select("id")
     .single();
 
