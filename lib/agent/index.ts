@@ -1,10 +1,12 @@
-import Anthropic from "@anthropic-ai/sdk";
 import OpenAI from "openai";
 import { createServiceClient } from "@/lib/supabase/server";
 
 function getClients() {
   return {
-    anthropic: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
+    gemini: new OpenAI({
+      apiKey: process.env.GOOGLE_AI_API_KEY,
+      baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    }),
     openai: new OpenAI({ apiKey: process.env.OPENAI_API_KEY }),
   };
 }
@@ -27,7 +29,7 @@ interface TenantConfig {
 }
 
 export async function runAgent(input: AgentInput): Promise<AgentOutput> {
-  const { anthropic, openai } = getClients();
+  const { gemini, openai } = getClients();
   const supabase = createServiceClient();
 
   const [tenantRes, contextRes] = await Promise.all([
@@ -81,23 +83,20 @@ export async function runAgent(input: AgentInput): Promise<AgentOutput> {
   // Historial recortado a los últimos 10 mensajes
   const recentHistory = history.slice(-10);
 
-  const messages: Anthropic.MessageParam[] = [
-    ...recentHistory.map((m) => ({
-      role: m.role as "user" | "assistant",
-      content: m.content,
-    })),
-    { role: "user", content: input.userMessage },
-  ];
-
-  const response = await anthropic.messages.create({
-    model: "claude-sonnet-4-20250514",
+  const response = await gemini.chat.completions.create({
+    model: "gemini-2.5-flash",
     max_tokens: 500,
-    system: systemPrompt,
-    messages,
+    messages: [
+      { role: "system", content: systemPrompt },
+      ...recentHistory.map((m) => ({
+        role: m.role as "user" | "assistant",
+        content: m.content,
+      })),
+      { role: "user", content: input.userMessage },
+    ],
   });
 
-  const reply =
-    response.content[0].type === "text" ? response.content[0].text : "";
+  const reply = response.choices[0]?.message?.content ?? "";
 
   const shouldEscalate = reply.includes("[ESCALAR_HUMANO]");
   const cleanReply = reply.replace("[ESCALAR_HUMANO]", "").trim();

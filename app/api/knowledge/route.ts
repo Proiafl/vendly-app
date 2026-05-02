@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+export const dynamic = 'force-dynamic';
 import OpenAI from "openai";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+async function getOpenAI() {
+  return new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+}
 
 async function getTenantId(supabase: Awaited<ReturnType<typeof createClient>>, userId: string) {
   const { data } = await supabase
@@ -44,6 +48,7 @@ export async function POST(req: NextRequest) {
   const { content, source } = await req.json();
   if (!content?.trim()) return NextResponse.json({ error: "content required" }, { status: 400 });
 
+  const openai = await getOpenAI();
   const embeddingRes = await openai.embeddings.create({
     model: "text-embedding-3-small",
     input: content.trim(),

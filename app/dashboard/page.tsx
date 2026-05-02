@@ -1,38 +1,67 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+"use client";
 
-export default async function DashboardPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter } from "next/navigation";
 
-  const { data: membership } = await supabase
-    .from("tenant_users")
-    .select("tenant_id, role, tenants(name, agent_name)")
-    .eq("user_id", user.id)
-    .maybeSingle();
+export default function DashboardPage() {
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>(null);
+  const supabase = createClient();
+  const router = useRouter();
 
-  if (!membership) redirect("/onboarding");
+  useEffect(() => {
+    async function loadData() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/login");
+        return;
+      }
 
-  const tenantId = membership.tenant_id;
+      const { data: membership } = await supabase
+        .from("tenant_users")
+        .select("tenant_id, role, tenants(name, agent_name)")
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-  const { data: metrics } = await supabase
-    .from("v_tenant_metrics")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .order("day", { ascending: false })
-    .limit(7);
+      if (!membership) {
+        router.push("/onboarding");
+        return;
+      }
 
-  const { data: inbox } = await supabase
-    .from("v_inbox")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .order("last_message_at", { ascending: false })
-    .limit(5);
+      const tenantId = membership.tenant_id;
 
-  const totalConversations = metrics?.reduce((s, r) => s + (r.conversations ?? 0), 0) ?? 0;
-  const totalMessages = metrics?.reduce((s, r) => s + (r.messages ?? 0), 0) ?? 0;
-  const aiResponses = metrics?.reduce((s, r) => s + (r.ai_responses ?? 0), 0) ?? 0;
+      const [metricsRes, inboxRes] = await Promise.all([
+        supabase
+          .from("v_tenant_metrics")
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .order("day", { ascending: false })
+          .limit(7),
+        supabase
+          .from("v_inbox")
+          .select("*")
+          .eq("tenant_id", tenantId)
+          .order("last_message_at", { ascending: false })
+          .limit(5)
+      ]);
+
+      const metrics = metricsRes.data ?? [];
+      const totalConversations = metrics.reduce((s: number, r: any) => s + (r.conversations ?? 0), 0);
+      const totalMessages = metrics.reduce((s: number, r: any) => s + (r.messages ?? 0), 0);
+      const aiResponses = metrics.reduce((s: number, r: any) => s + (r.ai_responses ?? 0), 0);
+
+      setData({
+        metrics,
+        inbox: inboxRes.data ?? [],
+        stats: { totalConversations, totalMessages, aiResponses }
+      });
+      setLoading(false);
+    }
+    loadData();
+  }, [supabase, router]);
+
+  if (loading) return <div style={{ padding: 40, color: "#fff" }}>Cargando dashboard...</div>;
 
   const statStyle: React.CSSProperties = {
     background: "rgba(255,255,255,0.025)",
@@ -52,12 +81,11 @@ export default async function DashboardPage() {
       <h1 style={{ fontSize: 24, fontWeight: 700, color: "#fff", marginBottom: 4 }}>Resumen</h1>
       <p style={{ color: "#71717a", fontSize: 14, marginBottom: 32 }}>Últimos 7 días de actividad del agente.</p>
 
-      {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
         {[
-          { label: "Conversaciones", value: totalConversations },
-          { label: "Mensajes", value: totalMessages },
-          { label: "Respuestas IA", value: aiResponses },
+          { label: "Conversaciones", value: data.stats.totalConversations },
+          { label: "Mensajes", value: data.stats.totalMessages },
+          { label: "Respuestas IA", value: data.stats.aiResponses },
         ].map((s) => (
           <div key={s.label} style={statStyle}>
             <p style={{ fontSize: 11, color: "#71717a", textTransform: "uppercase", letterSpacing: "0.05em", marginBottom: 8 }}>{s.label}</p>
@@ -66,19 +94,18 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Inbox preview */}
       <div style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14 }}>
         <div style={{ padding: "18px 20px", borderBottom: "1px solid rgba(255,255,255,0.07)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <h2 style={{ fontSize: 14, fontWeight: 600, color: "#fff" }}>Últimas conversaciones</h2>
           <a href="/dashboard/inbox" style={{ fontSize: 12, color: "#10b981", textDecoration: "none" }}>Ver todas →</a>
         </div>
-        {!inbox?.length ? (
+        {!data.inbox?.length ? (
           <p style={{ textAlign: "center", color: "#52525b", fontSize: 13, padding: "32px 0" }}>
             Sin conversaciones aún. Conectá WhatsApp o Instagram para empezar.
           </p>
         ) : (
           <ul style={{ listStyle: "none", margin: 0, padding: 0 }}>
-            {inbox.map((conv: any) => (
+            {data.inbox.map((conv: any) => (
               <li key={conv.id} style={{
                 padding: "14px 20px",
                 borderBottom: "1px solid rgba(255,255,255,0.04)",

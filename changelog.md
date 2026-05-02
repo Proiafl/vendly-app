@@ -1,5 +1,45 @@
 # Changelog
 
+## [2026-05-02] - Página de Términos de Servicio y Actualización de Footer
+
+### Descripción del cambio
+- **Nueva Página de Términos**: Creada `app/terms/page.tsx` con los Términos de Servicio de Vendly, adaptados de Bizzfair y localizados al español.
+- **Actualización de Footer**:
+  - En la landing page (`app/page.tsx`), se reemplazó el link de marcador de posición de "Términos" por un enlace funcional a `/terms`.
+  - Se actualizaron los footers de `app/privacy/page.tsx` y `app/terms/page.tsx` para incluir navegación cruzada (Inicio, Privacidad, Términos, Contacto).
+- **Diseño Premium**: Se mantuvo la estética "dark glassmorphism" y el uso de fuentes modernas para coherencia visual.
+
+### Motivo técnico/estético
+- **Cumplimiento Legal**: Complementa la política de privacidad para establecer el marco legal de uso de la plataforma.
+- **Navegación**: Mejora la experiencia de usuario permitiendo acceder a los documentos legales desde cualquier página de información.
+
+### Pasos para revertir
+1. Eliminar el directorio `app/terms`.
+2. Revertir los cambios en el footer de `app/page.tsx` y `app/privacy/page.tsx`.
+
+
+## [2026-05-01] - Estrategia SEO/AIO & Ajustes UI 3D Testimonials
+
+### Descripción del cambio
+- **Estrategia AIO y SEO**: Generado artefacto `seo_llm_strategy.md` con el plan maestro para dominar Google, ChatGPT, Claude y Gemini usando `llms.txt`, Schema.org, y SEO programático.
+- **Overlap (Solapamiento)**: En `app/page.tsx` se redujo el padding superior (`pt-10`) de la sección de Clientes y se aplicó un margen negativo drástico (`mb-[-220px]`) para que las letras floten por encima de las animaciones.
+- **Rendimiento 3D y Hover**: Se eliminó `pauseOnHover` para evitar el glitch de Chrome (flickering), se forzó renderizado por GPU (`will-change-transform`, `preserve-3d`) y se añadió `loading="eager"` a los avatares para carga inmediata.
+- Implementado componente `Marquee` (`components/ui/3d-testimonials.tsx`) para mostrar testimonios animados.
+- Integrado componente `TestimonialCard` dentro de un nuevo `TestimonialsDemo` (`components/ui/demo-one.tsx`).
+- Se instaló la dependencia `@radix-ui/react-avatar`.
+- Se configuraron las animaciones `--animate-marquee` y `--animate-marquee-vertical` en `app/globals.css`.
+- Reemplazada la sección estática de Clientes en `app/page.tsx` por el nuevo carrusel 3D animado usando data mockeada de testimonios referentes a Vendly con imágenes reales.
+- Se agregó un archivo `.env.local` simulado temporalmente para permitir un build exitoso.
+
+### Motivo técnico/estético
+- **Optimización LLM**: Asegurar posicionamiento futuro cuando las IAs busquen referencias de chatbots en internet.
+- **Rendimiento y WOW Factor**: Carrusel inmersivo sin glitch visual ni retardos de carga de red, dando una estética super premium 100% inmersiva.
+
+### Pasos para revertir
+1. Restaurar la sección "Clientes" original en `app/page.tsx` con el `.grid` de testimonios.
+2. Eliminar `components/ui/3d-testimonials.tsx`, `components/ui/demo-one.tsx`, `components/ui/card.tsx` y `components/ui/avatar.tsx`.
+3. Eliminar `@radix-ui/react-avatar` de dependencias.
+
 ## [2026-04-30] - Sección de Privacidad (Meta Compliance)
 
 ### Descripción del cambio

@@ -75,6 +75,7 @@ async function processInstagramEvent(body: any) {
       .insert({ tenant_id, ig_username: event.senderId })
       .select("id")
       .single();
+    if (!created) return;
     contactId = created.id;
   }
 
@@ -100,10 +101,11 @@ async function processInstagramEvent(body: any) {
       })
       .select("id, ai_handling")
       .single();
+    if (!created) return;
     conversation = created;
   }
 
-  if (!conversation.ai_handling) return;
+  if (!conversation!.ai_handling) return;
 
   await supabase.from("messages").insert({
     conversation_id: conversation.id,

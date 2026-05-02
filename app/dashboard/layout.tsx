@@ -1,20 +1,43 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
+"use client";
+
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 
-export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect("/login");
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [loading, setLoading] = useState(true);
+  const [tenant, setTenant] = useState<any>(null);
+  const supabase = createClient();
+  const router = useRouter();
+  const pathname = usePathname();
 
-  const { data: membership } = await supabase
-    .from("tenant_users")
-    .select("tenant_id, tenants(name)")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  useEffect(() => {
+    async function checkUser() {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push("/login");
+        return;
+      }
 
-  if (!membership) redirect("/onboarding");
-  const tenant = membership.tenants as any;
+      const { data: membership } = await supabase
+        .from("tenant_users")
+        .select("tenant_id, tenants(name)")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+      if (!membership) {
+        router.push("/onboarding");
+        return;
+      }
+
+      setTenant(membership.tenants);
+      setLoading(false);
+    }
+    checkUser();
+  }, [supabase, router]);
+
+  if (loading) return <div style={{ minHeight: "100vh", background: "#09090b", color: "#f4f4f5", padding: 40 }}>Cargando...</div>;
 
   const nav = [
     { href: "/dashboard", label: "Resumen", icon: "⬡" },
@@ -24,8 +47,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   ];
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#09090b", color: "#f4f4f5", fontFamily: "var(--font-inter, Inter, sans-serif)" }}>
-      {/* Sidebar */}
+    <div style={{ display: "flex", minHeight: "100vh", background: "#09090b", color: "#f4f4f5", fontFamily: "Inter, sans-serif" }}>
       <aside style={{
         width: 220,
         flexShrink: 0,
@@ -58,7 +80,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
                 padding: "9px 12px",
                 borderRadius: 8,
                 textDecoration: "none",
-                color: "#a1a1aa",
+                color: pathname === item.href ? "#fff" : "#a1a1aa",
+                background: pathname === item.href ? "rgba(255,255,255,0.05)" : "transparent",
                 fontSize: 13,
                 fontWeight: 500,
                 transition: "background 0.15s, color 0.15s",
@@ -72,8 +95,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
         </nav>
 
         <div style={{ padding: "12px 10px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-          <form action="/api/auth/signout" method="post">
-            <button style={{
+          <button 
+            onClick={async () => {
+              await supabase.auth.signOut();
+              router.push("/login");
+            }}
+            style={{
               width: "100%",
               padding: "9px 12px",
               borderRadius: 8,
@@ -83,14 +110,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
               fontSize: 13,
               textAlign: "left",
               cursor: "pointer",
-            }}>
-              Salir
-            </button>
-          </form>
+            }}
+          >
+            Salir
+          </button>
         </div>
       </aside>
 
-      {/* Main */}
       <main style={{ flex: 1, overflowY: "auto" }}>
         {children}
       </main>

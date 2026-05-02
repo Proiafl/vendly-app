@@ -81,6 +81,11 @@ export default function PrivacyPage() {
       </main>
 
       <footer className="border-t border-white/[0.06] py-12 px-5 text-center text-zinc-600 text-xs">
+        <div className="flex justify-center gap-6 mb-4">
+          <Link href="/" className="hover:text-zinc-400 transition-colors">Inicio</Link>
+          <Link href="/terms" className="hover:text-zinc-400 transition-colors">Términos</Link>
+          <a href="mailto:hola@vendly.app" className="hover:text-zinc-400 transition-colors">Contacto</a>
+        </div>
         <p>© 2026 Vendly. Todos los derechos reservados.</p>
       </footer>
     </div>

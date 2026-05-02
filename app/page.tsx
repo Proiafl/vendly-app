@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/Navbar";
 import { FaqAccordion } from "@/components/FaqAccordion";
 import { CinematicHero } from "@/components/ui/cinematic-hero";
+import { TestimonialsDemo } from "@/components/ui/demo-one";
 
 /* ─── Data ─────────────────────────────────────────────────────── */
 
@@ -114,32 +115,7 @@ const steps = [
   },
 ];
 
-const testimonials = [
-  {
-    name: "Carla Méndez",
-    business: "Boutique Claro, Bogotá",
-    avatar: "CM",
-    color: "bg-emerald-500",
-    quote:
-      "Antes perdía ventas por no responder a tiempo. Ahora el agente maneja 200+ consultas por semana y yo me enfoco en hacer crecer el negocio.",
-  },
-  {
-    name: "Diego Ríos",
-    business: "Consultoría RRHH, Buenos Aires",
-    avatar: "DR",
-    color: "bg-blue-500",
-    quote:
-      "Configuré el agente en 20 minutos. La primera semana ya tenía 18 leads calificados sin intervención. El ROI fue inmediato.",
-  },
-  {
-    name: "Sofía Paredes",
-    business: "Ecommerce cosméticos, Lima",
-    avatar: "SP",
-    color: "bg-violet-500",
-    quote:
-      "El pipeline integrado cambió todo. Puedo ver en qué etapa está cada cliente desde el dashboard, sin revisar WhatsApp manualmente.",
-  },
-];
+
 
 const plans = [
   {
@@ -359,38 +335,19 @@ export default function LandingPage() {
       </section>
 
       {/* ── Testimonials ── */}
-      <section id="testimonials" className="py-24 px-5">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-4">Clientes</p>
-            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+      <section id="testimonials" className="pt-10 pb-12 overflow-hidden relative">
+        <div className="max-w-6xl mx-auto px-5 relative z-20 pointer-events-none mb-[-220px]">
+          <div className="text-center">
+            <p className="text-emerald-400 text-xs font-semibold tracking-widest uppercase mb-4 drop-shadow-md">Clientes</p>
+            <h2 className="text-3xl md:text-4xl font-bold text-white mb-4 drop-shadow-2xl">
               Negocios que ya venden en automático
             </h2>
-            <p className="text-zinc-400 text-lg">Resultados reales de clientes reales.</p>
+            <p className="text-zinc-200 text-lg drop-shadow-lg font-medium">Resultados reales de clientes reales.</p>
           </div>
+        </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            {testimonials.map((t) => (
-              <div
-                key={t.name}
-                className="premium-glass p-6 flex flex-col gap-4"
-              >
-                <div className="stars text-sm">★★★★★</div>
-                <p className="text-zinc-300 text-sm leading-relaxed flex-1">
-                  &ldquo;{t.quote}&rdquo;
-                </p>
-                <div className="flex items-center gap-3 pt-2 border-t border-white/[0.06]">
-                  <div className={`w-9 h-9 rounded-full ${t.color} flex items-center justify-center text-white text-xs font-bold shrink-0`}>
-                    {t.avatar}
-                  </div>
-                  <div>
-                    <p className="text-white text-sm font-semibold leading-none mb-1">{t.name}</p>
-                    <p className="text-zinc-500 text-xs">{t.business}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="w-full relative z-10">
+          <TestimonialsDemo />
         </div>
       </section>
 
@@ -548,7 +505,7 @@ export default function LandingPage() {
               <div className="flex flex-col gap-3">
                 <p className="text-zinc-400 font-medium text-xs uppercase tracking-widest">Empresa</p>
                 <Link href="/privacy" className="text-zinc-500 hover:text-white transition-colors">Privacidad</Link>
-                <a href="#" className="text-zinc-500 hover:text-white transition-colors">Términos</a>
+                <Link href="/terms" className="text-zinc-500 hover:text-white transition-colors">Términos</Link>
                 <a href="mailto:hola@vendly.app" className="text-zinc-500 hover:text-white transition-colors">Contacto</a>
               </div>
             </div>

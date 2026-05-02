@@ -4,6 +4,8 @@
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --color-primary: #10b981;
   --color-foreground: #f4f4f5;
+  --animate-marquee: marquee var(--duration) infinite linear;
+  --animate-marquee-vertical: marquee-vertical var(--duration) linear infinite;
 }
 
 body {
@@ -39,7 +41,31 @@ body {
   66% { transform: translate(-20px, 20px) scale(0.9); }
 }
 
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% - var(--gap)));
+  }
+}
+
+@keyframes marquee-vertical {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(-100% - var(--gap)));
+  }
+}
+
 @layer utilities {
+  .animate-marquee {
+    animation: marquee var(--duration) linear infinite;
+  }
+  .animate-marquee-vertical {
+    animation: marquee-vertical var(--duration) linear infinite;
+  }
   .animate-pulse-slow { 
     animation: pulse-slow 3s ease-in-out infinite; 
   }
