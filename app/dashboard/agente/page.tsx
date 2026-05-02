@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { callFunction } from "@/lib/functions";
 
 interface Chunk {
   id: string;
@@ -22,6 +24,20 @@ const TONES = [
   { value: "formal", label: "Formal" },
 ];
 
+async function getTokenAndTenant() {
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token ?? null;
+  const userId = session?.user?.id ?? null;
+  if (!token || !userId) return { token: null, tenantId: null };
+  const { data } = await supabase
+    .from("tenant_users")
+    .select("tenant_id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return { token, tenantId: data?.tenant_id ?? null };
+}
+
 export default function AgentePage() {
   const [config, setConfig] = useState<AgentConfig>({ agent_name: "", agent_tone: "profesional", business_context: "" });
   const [chunks, setChunks] = useState<Chunk[]>([]);
@@ -33,7 +49,9 @@ export default function AgentePage() {
   const [error, setError] = useState("");
 
   const loadChunks = useCallback(async () => {
-    const res = await fetch("/api/knowledge");
+    const { token } = await getTokenAndTenant();
+    if (!token) return;
+    const res = await callFunction("knowledge", { token });
     if (res.ok) {
       const data = await res.json();
       setChunks(data.chunks ?? []);
@@ -45,18 +63,25 @@ export default function AgentePage() {
   async function saveConfig() {
     setSaving(true);
     setError("");
-    const res = await fetch("/api/agent", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(config),
-    });
+    const { token, tenantId } = await getTokenAndTenant();
+    if (!token || !tenantId) { setError("Sesión no válida"); setSaving(false); return; }
+
+    const supabase = createClient();
+    const { error: dbErr } = await supabase
+      .from("tenants")
+      .update({
+        agent_name: config.agent_name,
+        agent_tone: config.agent_tone,
+        business_context: config.business_context,
+      })
+      .eq("id", tenantId);
+
     setSaving(false);
-    if (res.ok) {
+    if (dbErr) {
+      setError(dbErr.message ?? "Error al guardar");
+    } else {
       setSaved(true);
       setTimeout(() => setSaved(false), 2000);
-    } else {
-      const d = await res.json();
-      setError(d.error ?? "Error al guardar");
     }
   }
 
@@ -64,10 +89,13 @@ export default function AgentePage() {
     if (!newContent.trim()) return;
     setAdding(true);
     setError("");
-    const res = await fetch("/api/knowledge", {
+    const { token } = await getTokenAndTenant();
+    if (!token) { setError("Sesión no válida"); setAdding(false); return; }
+
+    const res = await callFunction("knowledge", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: newContent.trim(), source: newSource }),
+      body: { content: newContent.trim(), source: newSource },
+      token,
     });
     setAdding(false);
     if (res.ok) {
@@ -80,7 +108,9 @@ export default function AgentePage() {
   }
 
   async function deleteChunk(id: string) {
-    await fetch(`/api/knowledge?id=${id}`, { method: "DELETE" });
+    const { token } = await getTokenAndTenant();
+    if (!token) return;
+    await callFunction("knowledge", { method: "DELETE", token, params: { id } });
     setChunks((prev) => prev.filter((c) => c.id !== id));
   }
 
@@ -110,7 +140,6 @@ export default function AgentePage() {
         </div>
       )}
 
-      {/* Sección: Personalidad */}
       <section style={sectionStyle}>
         <h2 style={{ fontSize: 15, fontWeight: 600, color: "#fff", marginBottom: 20 }}>
           <span style={{ color: "#10b981", marginRight: 8 }}>◈</span>Personalidad del Agente
@@ -156,7 +185,6 @@ export default function AgentePage() {
         </button>
       </section>
 
-      {/* Sección: Knowledge Base */}
       <section style={sectionStyle}>
         <h2 style={{ fontSize: 15, fontWeight: 600, color: "#fff", marginBottom: 8 }}>
           <span style={{ color: "#10b981", marginRight: 8 }}>◉</span>Base de Conocimiento (RAG)
@@ -165,7 +193,6 @@ export default function AgentePage() {
           Añadí preguntas frecuentes, detalles de productos, políticas de envío u otra información que el agente debe conocer. Cada bloque se vectoriza automáticamente.
         </p>
 
-        {/* Add chunk */}
         <div style={{ background: "rgba(16,185,129,0.04)", border: "1px solid rgba(16,185,129,0.15)", borderRadius: 12, padding: 20, marginBottom: 24 }}>
           <div style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Contenido</label>
@@ -192,7 +219,6 @@ export default function AgentePage() {
           </div>
         </div>
 
-        {/* Chunks list */}
         {chunks.length === 0 ? (
           <p style={{ textAlign: "center", color: "#52525b", fontSize: 13, padding: "24px 0" }}>
             No hay conocimiento cargado aún. Agregá el primero arriba.

@@ -1,52 +1,50 @@
-import { NextRequest, NextResponse } from "next/server";
-import { verifyMetaSignature, parseInstagramEvent } from "@/lib/meta/verify";
-import { sendInstagramText } from "@/lib/meta/sender";
-import { runAgent } from "@/lib/agent";
-import { createServiceClient } from "@/lib/supabase/server";
+import { corsHeaders, corsResponse } from "../_shared/cors.ts";
+import { verifyMetaSignature, parseInstagramEvent, sendInstagramText } from "../_shared/meta.ts";
+import { getServiceClient } from "../_shared/supabase.ts";
+import { runAgent } from "../_shared/agent.ts";
 
-export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const mode = searchParams.get("hub.mode");
-  const token = searchParams.get("hub.verify_token");
-  const challenge = searchParams.get("hub.challenge");
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return corsResponse();
 
-  if (mode === "subscribe" && token === process.env.META_WEBHOOK_VERIFY_TOKEN) {
-    return new NextResponse(challenge, { status: 200 });
+  if (req.method === "GET") {
+    const url = new URL(req.url);
+    const mode = url.searchParams.get("hub.mode");
+    const token = url.searchParams.get("hub.verify_token");
+    const challenge = url.searchParams.get("hub.challenge");
+    if (mode === "subscribe" && token === Deno.env.get("META_WEBHOOK_VERIFY_TOKEN")) {
+      return new Response(challenge, { status: 200 });
+    }
+    return new Response("Forbidden", { status: 403 });
   }
-  return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-}
 
-export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const signature = req.headers.get("x-hub-signature-256");
 
   if (!verifyMetaSignature(rawBody, signature)) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+    return new Response("Invalid signature", { status: 401 });
   }
 
   const body = JSON.parse(rawBody);
-  processInstagramEvent(body).catch(console.error);
+  EdgeRuntime.waitUntil(processEvent(body));
 
-  return NextResponse.json({ status: "ok" });
-}
+  return new Response(JSON.stringify({ status: "ok" }), {
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+});
 
-async function processInstagramEvent(body: any) {
+async function processEvent(body: any) {
   const event = parseInstagramEvent(body);
   if (!event) return;
 
-  const supabase = createServiceClient();
+  const supabase = getServiceClient();
 
-  // Identificar tenant por page_id
   const { data: routing } = await supabase
     .from("phone_routing")
     .select("tenant_id, channel_id")
     .eq("page_id", event.pageId)
     .maybeSingle();
 
-  if (!routing) {
-    console.warn("No tenant found for page_id:", event.pageId);
-    return;
-  }
+  if (!routing) return;
 
   const { tenant_id, channel_id } = routing;
 
@@ -58,7 +56,6 @@ async function processInstagramEvent(body: any) {
 
   if (!channel) return;
 
-  // Encontrar o crear contacto por ig_username
   const { data: existing } = await supabase
     .from("contacts")
     .select("id")
@@ -79,7 +76,6 @@ async function processInstagramEvent(body: any) {
     contactId = created.id;
   }
 
-  // Encontrar o crear conversación
   const { data: convExisting } = await supabase
     .from("conversations")
     .select("id, ai_handling")
@@ -93,19 +89,14 @@ async function processInstagramEvent(body: any) {
   if (!conversation) {
     const { data: created } = await supabase
       .from("conversations")
-      .insert({
-        tenant_id,
-        contact_id: contactId,
-        channel_type: "instagram",
-        channel_id,
-      })
+      .insert({ tenant_id, contact_id: contactId, channel_type: "instagram", channel_id })
       .select("id, ai_handling")
       .single();
     if (!created) return;
     conversation = created;
   }
 
-  if (!conversation!.ai_handling) return;
+  if (!conversation.ai_handling) return;
 
   await supabase.from("messages").insert({
     conversation_id: conversation.id,
@@ -130,11 +121,8 @@ async function processInstagramEvent(body: any) {
     content: reply,
   });
 
-  await supabase
-    .from("conversations")
-    .update({
-      last_message_at: new Date().toISOString(),
-      ...(shouldEscalate && { ai_handling: false }),
-    })
-    .eq("id", conversation.id);
+  await supabase.from("conversations").update({
+    last_message_at: new Date().toISOString(),
+    ...(shouldEscalate && { ai_handling: false }),
+  }).eq("id", conversation.id);
 }
