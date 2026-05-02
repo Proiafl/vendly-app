@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { callFunction } from "@/lib/functions";
 
 declare global {
   interface Window {
@@ -48,13 +50,14 @@ export default function ConnectChannels({ tenantId, onComplete }: ConnectChannel
       async (response: any) => {
         if (response.authResponse?.code) {
           try {
-            const res = await fetch("/api/meta/callback", {
+            const supabase = createClient();
+            const { data: { session } } = await supabase.auth.getSession();
+            const token = session?.access_token;
+
+            const res = await callFunction("meta-callback", {
               method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                code: response.authResponse.code,
-                tenantId,
-              }),
+              body: { code: response.authResponse.code, tenantId },
+              token,
             });
 
             const data = await res.json();

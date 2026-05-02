@@ -30,7 +30,7 @@ export function Navbar() {
 
         <div className="flex items-center gap-3">
           <Link
-            href="/dashboard"
+            href="/login"
             className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block"
           >
             Ingresar
@@ -78,7 +78,7 @@ export function Navbar() {
           ))}
           <div className="border-t border-white/[0.06] mt-2 pt-2">
             <Link
-              href="/dashboard"
+              href="/login"
               onClick={() => setOpen(false)}
               className="block text-zinc-500 hover:text-white py-2.5 px-3 rounded-lg hover:bg-white/[0.04] transition-colors text-sm"
             >
