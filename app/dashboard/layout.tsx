@@ -8,11 +8,11 @@ import Link from "next/link";
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [tenant, setTenant] = useState<any>(null);
-  const supabase = createClient();
   const router = useRouter();
   const pathname = usePathname();
 
   useEffect(() => {
+    const supabase = createClient();
     async function checkUser() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
@@ -26,7 +26,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setLoading(false);
     }
     checkUser();
-  }, [supabase, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (loading) return <div style={{ minHeight: "100vh", background: "#09090b", color: "#f4f4f5", padding: 40 }}>Cargando...</div>;
 
@@ -54,7 +55,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ))}
         </nav>
         <div style={{ padding: "12px 10px", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-          <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#52525b", fontSize: 13, textAlign: "left", cursor: "pointer" }}>
+          <button onClick={async () => { await createClient().auth.signOut(); router.push("/login"); }} style={{ width: "100%", padding: "9px 12px", borderRadius: 8, border: "none", background: "transparent", color: "#52525b", fontSize: 13, textAlign: "left", cursor: "pointer" }}>
             Salir
           </button>
         </div>

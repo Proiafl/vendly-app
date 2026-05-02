@@ -15,14 +15,14 @@ export default function OnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  const supabase = createClient();
+  // Note: supabase client is created inside useEffect and async functions to avoid re-render loops
 
   useEffect(() => {
+    const supabase = createClient();
     async function checkAuth() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push("/login"); return; }
 
-      // If already has tenant, skip to canales or dashboard
       const { data: membership } = await supabase
         .from("tenant_users")
         .select("tenant_id")
@@ -37,7 +37,8 @@ export default function OnboardingPage() {
       }
     }
     checkAuth();
-  }, [supabase, router]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function createEmpresa(e: React.FormEvent) {
     e.preventDefault();
@@ -45,7 +46,7 @@ export default function OnboardingPage() {
     setLoading(true);
     setError("");
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await createClient().auth.getSession();
     const token = session?.access_token;
     if (!token) { setError("Sesión expirada"); setLoading(false); return; }
 
@@ -149,7 +150,6 @@ export default function OnboardingPage() {
                 <input
                   type="text"
                   required
-                  autoFocus
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   style={inputStyle}
