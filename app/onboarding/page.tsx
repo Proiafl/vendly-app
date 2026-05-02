@@ -1,44 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { callFunction } from "@/lib/functions";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import ConnectChannels from "@/components/onboarding/ConnectChannels";
 
-type Step = "auth-check" | "empresa" | "canales" | "listo";
+type Step = "empresa" | "canales" | "listo";
 
 export default function OnboardingPage() {
-  const [step, setStep] = useState<Step>("auth-check");
+  const [step, setStep] = useState<Step>("empresa");
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
-  // Note: supabase client is created inside useEffect and async functions to avoid re-render loops
-
-  useEffect(() => {
-    const supabase = createClient();
-    async function checkAuth() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push("/login"); return; }
-
-      const { data: membership } = await supabase
-        .from("tenant_users")
-        .select("tenant_id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      if (membership) {
-        setTenantId(membership.tenant_id);
-        setStep("canales");
-      } else {
-        setStep("empresa");
-      }
-    }
-    checkAuth();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   async function createEmpresa(e: React.FormEvent) {
     e.preventDefault();
@@ -46,22 +23,35 @@ export default function OnboardingPage() {
     setLoading(true);
     setError("");
 
-    const { data: { session } } = await createClient().auth.getSession();
-    const token = session?.access_token;
-    if (!token) { setError("Sesión expirada"); setLoading(false); return; }
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session?.access_token) {
+      setLoading(false);
+      setError("Necesitás iniciar sesión primero.");
+      return;
+    }
 
     const res = await callFunction("create-tenant", {
       method: "POST",
       body: { name: name.trim() },
-      token,
+      token: session.access_token,
     });
+
     const data = await res.json();
     setLoading(false);
 
-    if (!res.ok) { setError(data.error ?? "Error al crear empresa"); return; }
+    if (!res.ok) {
+      setError(data.error ?? "Error al crear empresa");
+      return;
+    }
+
     setTenantId(data.tenantId);
     setStep("canales");
   }
+
+  const steps = ["empresa", "canales", "listo"] as const;
+  const currentIdx = steps.indexOf(step);
 
   const inputStyle: React.CSSProperties = {
     width: "100%",
@@ -75,14 +65,6 @@ export default function OnboardingPage() {
     boxSizing: "border-box",
   };
 
-  if (step === "auth-check") {
-    return (
-      <div style={{ minHeight: "100vh", background: "#09090b", display: "flex", alignItems: "center", justifyContent: "center" }}>
-        <div style={{ color: "#71717a", fontSize: 14 }}>Cargando...</div>
-      </div>
-    );
-  }
-
   return (
     <div style={{
       minHeight: "100vh",
@@ -94,15 +76,15 @@ export default function OnboardingPage() {
       justifyContent: "center",
       padding: 24,
     }}>
-      {/* Header */}
       <div style={{ textAlign: "center", marginBottom: 48 }}>
-        <span style={{ fontSize: 22, fontWeight: 700, color: "#fff" }}>
-          Vendly<span style={{ color: "#10b981" }}>.</span>
-        </span>
+        <Link href="/" style={{ textDecoration: "none" }}>
+          <span style={{ fontSize: 22, fontWeight: 700, color: "#fff" }}>
+            Vendly<span style={{ color: "#10b981" }}>.</span>
+          </span>
+        </Link>
 
-        {/* Progress */}
         <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center", marginTop: 24 }}>
-          {["empresa", "canales", "listo"].map((s, i) => (
+          {steps.map((s, i) => (
             <div key={s} style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <div style={{
                 width: 28,
@@ -113,11 +95,11 @@ export default function OnboardingPage() {
                 justifyContent: "center",
                 fontSize: 12,
                 fontWeight: 700,
-                background: step === s ? "#10b981" : (["empresa", "canales", "listo"].indexOf(step) > i ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.07)"),
-                color: step === s ? "#fff" : (["empresa", "canales", "listo"].indexOf(step) > i ? "#10b981" : "#52525b"),
-                border: step === s ? "none" : "1px solid rgba(255,255,255,0.08)",
+                background: i === currentIdx ? "#10b981" : i < currentIdx ? "rgba(16,185,129,0.3)" : "rgba(255,255,255,0.07)",
+                color: i === currentIdx ? "#fff" : i < currentIdx ? "#10b981" : "#52525b",
+                border: i === currentIdx ? "none" : "1px solid rgba(255,255,255,0.08)",
               }}>
-                {["empresa", "canales", "listo"].indexOf(step) > i ? "✓" : i + 1}
+                {i < currentIdx ? "✓" : i + 1}
               </div>
               {i < 2 && <div style={{ width: 32, height: 1, background: "rgba(255,255,255,0.08)" }} />}
             </div>
@@ -126,7 +108,6 @@ export default function OnboardingPage() {
       </div>
 
       <div style={{ width: "100%", maxWidth: 480 }}>
-        {/* Step 1: Empresa */}
         {step === "empresa" && (
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 36 }}>
             <h1 style={{ fontSize: 22, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
@@ -138,7 +119,10 @@ export default function OnboardingPage() {
 
             {error && (
               <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.2)", borderRadius: 8, padding: "10px 14px", color: "#f87171", fontSize: 13, marginBottom: 20 }}>
-                {error}
+                {error}{" "}
+                {error.includes("sesión") && (
+                  <Link href="/login" style={{ color: "#f87171", fontWeight: 600 }}>Ingresar →</Link>
+                )}
               </div>
             )}
 
@@ -169,17 +153,21 @@ export default function OnboardingPage() {
                   padding: "13px 0",
                   fontSize: 14,
                   fontWeight: 600,
-                  cursor: loading ? "not-allowed" : "pointer",
+                  cursor: loading || !name.trim() ? "not-allowed" : "pointer",
                   opacity: loading || !name.trim() ? 0.6 : 1,
                 }}
               >
                 {loading ? "Creando..." : "Continuar"}
               </button>
             </form>
+
+            <p style={{ textAlign: "center", marginTop: 20, fontSize: 13, color: "#52525b" }}>
+              ¿Ya tenés cuenta?{" "}
+              <Link href="/login" style={{ color: "#10b981", textDecoration: "none" }}>Ingresar</Link>
+            </p>
           </div>
         )}
 
-        {/* Step 2: Canales */}
         {step === "canales" && tenantId && (
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, overflow: "hidden" }}>
             <ConnectChannels
@@ -197,13 +185,10 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {/* Step 3: Listo */}
         {step === "listo" && (
           <div style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 20, padding: 36, textAlign: "center" }}>
             <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, color: "#fff", marginBottom: 8 }}>
-              Todo listo
-            </h1>
+            <h1 style={{ fontSize: 22, fontWeight: 700, color: "#fff", marginBottom: 8 }}>Todo listo</h1>
             <p style={{ color: "#71717a", fontSize: 14, marginBottom: 32 }}>
               Tu agente IA ya está configurado. Podés empezar a usarlo desde el dashboard.
             </p>
