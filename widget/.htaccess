@@ -1,0 +1,5 @@
+# Only this page may be embedded by tenant sites (iframe from public/widget.js): drop the frame restrictions set at the root.
+<IfModule mod_headers.c>
+  Header always unset X-Frame-Options
+  Header always unset Content-Security-Policy
+</IfModule>
